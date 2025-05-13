@@ -6,6 +6,8 @@ using System.Threading;
 class Program
 {
     private static Random _random = new Random();
+    private static string _currentTopic = "";
+    private static string _userName = "";
 
     static void Main()
     {
@@ -15,15 +17,15 @@ class Program
         Console.ForegroundColor = ConsoleColor.Cyan;
         TypeEffect("📝 What's your name? ");
         Console.ResetColor();
-        string userName = Console.ReadLine();
+        _userName = Console.ReadLine();
 
-        StartChat(userName);
+        StartChat();
     }
 
     static void DisplayHeader()
     {
         Console.Clear();
-        string asciiArt = @"
+        Console.WriteLine(@"
    _____ _           _     _         
   / ____| |         | |   (_)        
  | |    | |__   __ _| |__  _ _ __    
@@ -32,8 +34,7 @@ class Program
   \_____|_| |_|\__,_|_| |_|_|_| |_|  
                                       
         Security ChatBot
---------------------------------";
-        Console.WriteLine(asciiArt);
+--------------------------------");
         Thread.Sleep(1000);
     }
 
@@ -41,7 +42,7 @@ class Program
     {
         try
         {
-            using (SoundPlayer player = new SoundPlayer("greeting.wav"))
+            using (var player = new SoundPlayer("greeting.wav"))
             {
                 player.PlaySync();
             }
@@ -49,86 +50,174 @@ class Program
         catch { /* Ignore if sound file not found */ }
     }
 
-    static void StartChat(string userName)
+    static void StartChat()
     {
-        TypeEffect($"\n[ChatBot]: Welcome {userName}! I'm your Cybersecurity Assistant.");
-        TypeEffect("You can ask me about:");
-        TypeEffect("- Passwords (e.g., 'How to create strong passwords?')");
-        TypeEffect("- Scams (e.g., 'How to recognize online scams?')");
-        TypeEffect("- Phishing (e.g., 'Give me phishing tips')");
-        TypeEffect("- Privacy (e.g., 'How to protect my privacy online?')");
-        TypeEffect("Type 'exit' to end our chat.\n");
+        TypeEffect($"\n[ChatBot]: Welcome {_userName}! I'm your Cybersecurity Assistant.");
+        ShowMainMenu();
 
         while (true)
         {
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.Write("\n🧑 You: ");
             Console.ResetColor();
-            string userInput = Console.ReadLine();
+            string userInput = Console.ReadLine()?.ToLower() ?? "";
 
-            if (userInput.ToLower() == "exit")
+            if (userInput == "exit")
             {
-                TypeEffect($"[ChatBot]: Stay safe online, {userName}! Goodbye!");
+                TypeEffect($"[ChatBot]: Stay safe online, {_userName}! Goodbye!");
                 break;
             }
 
-            string response = GetKeywordResponse(userInput);
+            if (userInput.Contains("menu") || userInput.Contains("help"))
+            {
+                ShowMainMenu();
+                _currentTopic = "";
+                continue;
+            }
+
+            string response = ProcessUserInput(userInput);
             TypeEffect($"[ChatBot]: {response}");
         }
     }
 
-    static string GetKeywordResponse(string userInput)
+    static void ShowMainMenu()
     {
-        string input = userInput.ToLower();
+        TypeEffect("\nYou can ask me about:");
+        TypeEffect("- Passwords (creating, securing, managing)");
+        TypeEffect("- Phishing (recognition, prevention)");
+        TypeEffect("- Scams (identification, protection)");
+        TypeEffect("- Privacy (online protection, settings)");
+        TypeEffect("Or say 'menu' anytime to see these options again.");
+    }
+
+    static string ProcessUserInput(string userInput)
+    {
+        // Handle follow-up questions first
+        if (!string.IsNullOrEmpty(_currentTopic))
+        {
+            if (ContainsAny(userInput, "more", "another", "else", "different"))
+            {
+                return GetTopicResponse(_currentTopic, true);
+            }
+            
+            if (ContainsAny(userInput, "explain", "what do you mean", "clarify", "confused"))
+            {
+                return GetDetailedExplanation(_currentTopic);
+            }
+        }
+
+        // Detect new topic
+        if (ContainsAny(userInput, "password", "passwords", "credential", "login"))
+        {
+            _currentTopic = "password";
+            return GetTopicResponse(_currentTopic, false);
+        }
+        else if (ContainsAny(userInput, "phish", "phishing"))
+        {
+            _currentTopic = "phishing";
+            return GetTopicResponse(_currentTopic, false);
+        }
+        else if (ContainsAny(userInput, "scam", "fraud", "hoax"))
+        {
+            _currentTopic = "scam";
+            return GetTopicResponse(_currentTopic, false);
+        }
+        else if (ContainsAny(userInput, "privacy", "private", "data protection", "tracking"))
+        {
+            _currentTopic = "privacy";
+            return GetTopicResponse(_currentTopic, false);
+        }
+
+        // General responses
+        string[] generalResponses = {
+            $"I'm happy to discuss cybersecurity topics with you {_userName}. What specifically would you like to know?",
+            $"I can help with password safety, phishing prevention, scam recognition, and privacy protection. What interests you {_userName}?",
+            $"Let me know what cybersecurity topic you'd like to explore {_userName}. For example, you could ask about creating strong passwords."
+        };
+        _currentTopic = "";
+        return generalResponses[_random.Next(generalResponses.Length)];
+    }
+
+    static string GetTopicResponse(string topic, bool isFollowUp)
+    {
+        var prefix = isFollowUp ? "Here's another tip" : "Great question";
         
-        if (ContainsAny(input, "password", "passwords", "credential", "login"))
+        return topic switch
         {
-            string[] passwordTips = {
-                "🔐 Password Tip 1: Use long passphrases (like 'PurpleTiger$JumpsHigh') instead of simple passwords.",
-                "🔐 Password Tip 2: Never reuse passwords across different accounts - a breach in one service could compromise all your accounts.",
-                "🔐 Password Tip 3: Enable two-factor authentication wherever possible, even if you have strong passwords.",
-                "🔐 Password Tip 4: Consider using a password manager - it's like a vault for all your passwords and can generate strong ones for you."
-            };
-            return passwordTips[_random.Next(passwordTips.Length)];
-        }
-        else if (ContainsAny(input, "scam", "fraud", "hoax"))
+            "password" => GetPasswordResponse(prefix),
+            "phishing" => GetPhishingResponse(prefix),
+            "scam" => GetScamResponse(prefix),
+            "privacy" => GetPrivacyResponse(prefix),
+            _ => "I'd be happy to discuss cybersecurity topics. What specifically interests you?"
+        };
+    }
+
+    static string GetPasswordResponse(string prefix)
+    {
+        string[] responses = {
+            $"{prefix} about passwords: Use long passphrases (like 'PurpleTiger$JumpsHigh') instead of simple passwords.",
+            $"{prefix} about passwords: Never reuse passwords across different accounts - a breach in one service could compromise all.",
+            $"{prefix} about passwords: Enable two-factor authentication wherever possible, even if you have strong passwords.",
+            $"{prefix} about passwords: Consider using a password manager - it's like a vault for all your passwords."
+        };
+        return responses[_random.Next(responses.Length)];
+    }
+
+    static string GetPhishingResponse(string prefix)
+    {
+        string[] responses = {
+            $"{prefix} about phishing: Check sender email addresses carefully - scammers often use addresses that look similar to real ones.",
+            $"{prefix} about phishing: Hover over links before clicking to see the actual URL. If it looks suspicious, don't click!",
+            $"{prefix} about phishing: Be cautious of emails creating urgency ('Your account will be closed!') - common phishing tactic.",
+            $"{prefix} about phishing: Look for poor grammar and spelling - many phishing attempts originate from non-native speakers."
+        };
+        return responses[_random.Next(responses.Length)];
+    }
+
+    static string GetScamResponse(string prefix)
+    {
+        string[] responses = {
+            $"{prefix} about scams: If an offer seems too good to be true, it probably is. Trust your instincts!",
+            $"{prefix} about scams: Never share verification codes with anyone - legitimate companies will never ask for these.",
+            $"{prefix} about scams: Be wary of urgent requests for money or information - scammers often create false emergencies."
+        };
+        return responses[_random.Next(responses.Length)];
+    }
+
+    static string GetPrivacyResponse(string prefix)
+    {
+        string[] responses = {
+            $"{prefix} about privacy: Regularly review app permissions on your devices - many apps request more access than they need.",
+            $"{prefix} about privacy: Use private browsing when you don't want history saved, but remember it doesn't make you anonymous.",
+            $"{prefix} about privacy: Consider using a VPN when on public WiFi to encrypt your internet traffic.",
+            $"{prefix} about privacy: Be mindful of what you post on social media - even 'private' accounts can be compromised."
+        };
+        return responses[_random.Next(responses.Length)];
+    }
+
+    static string GetDetailedExplanation(string topic)
+    {
+        return topic switch
         {
-            string[] scamTips = {
-                "🚨 Scam Alert 1: If an offer seems too good to be true, it probably is. Trust your instincts!",
-                "🚨 Scam Alert 2: Never share verification codes with anyone - legitimate companies will never ask for these.",
-                "🚨 Scam Alert 3: Be wary of urgent requests for money or information - scammers often create false emergencies."
-            };
-            return scamTips[_random.Next(scamTips.Length)];
-        }
-        else if (ContainsAny(input, "phish", "phishing"))
-        {
-            string[] phishingTips = {
-                "🎣 Phishing Tip 1: Check sender email addresses carefully - scammers often use addresses that look similar to real ones.",
-                "🎣 Phishing Tip 2: Hover over links before clicking to see the actual URL. If it looks suspicious, don't click!",
-                "🎣 Phishing Tip 3: Be cautious of emails creating urgency ('Your account will be closed!') - this is a common phishing tactic.",
-                "🎣 Phishing Tip 4: Look for poor grammar and spelling - many phishing attempts originate from non-native speakers."
-            };
-            return phishingTips[_random.Next(phishingTips.Length)];
-        }
-        else if (ContainsAny(input, "privacy", "private", "data protection", "tracking"))
-        {
-            string[] privacyTips = {
-                "🛡️ Privacy Tip 1: Regularly review app permissions on your devices - many apps request more access than they need.",
-                "🛡️ Privacy Tip 2: Use private/incognito browsing when you don't want your history saved, but remember it doesn't make you anonymous.",
-                "🛡️ Privacy Tip 3: Consider using a VPN when on public WiFi to encrypt your internet traffic.",
-                "🛡️ Privacy Tip 4: Be mindful of what you post on social media - even 'private' accounts can be compromised."
-            };
-            return privacyTips[_random.Next(privacyTips.Length)];
-        }
-        else
-        {
-            string[] generalResponses = {
-                "I specialize in cybersecurity topics. Try asking about password safety, scam prevention, or online privacy.",
-                "For cybersecurity advice, you can ask me about: creating strong passwords, recognizing scams, or protecting your privacy.",
-                "I'd be happy to help with cybersecurity questions about passwords, phishing, scams, or privacy protection."
-            };
-            return generalResponses[_random.Next(generalResponses.Length)];
-        }
+            "password" => "🔐 Password security is fundamental. Strong passwords should be long (12+ characters), " +
+                          "unique for each account, and include a mix of character types. Password managers help " +
+                          "generate and store these securely so you don't have to remember them all.",
+            
+            "phishing" => "🎣 Phishing is when attackers pretend to be trustworthy entities to steal sensitive information. " +
+                          "They often use email, text messages, or fake websites. Always verify the sender's identity " +
+                          "and never enter credentials unless you're certain of the website's authenticity.",
+            
+            "scam" => "🚨 Online scams come in many forms: fake tech support, romance scams, investment frauds. " +
+                      "They typically create urgency or offer unrealistic rewards. Never send money or information " +
+                      "to unverified parties, no matter how convincing they seem.",
+            
+            "privacy" => "🛡️ Online privacy means controlling what personal information you share and who can access it. " +
+                         "This includes social media posts, app permissions, location data, and browsing history. " +
+                         "Regularly check privacy settings on all your accounts and devices.",
+            
+            _ => "Cybersecurity is about protecting systems, networks, and data from digital attacks. " +
+                 "Would you like me to explain a specific aspect like passwords, phishing, scams, or privacy?"
+        };
     }
 
     static bool ContainsAny(string input, params string[] keywords)
