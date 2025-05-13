@@ -7,7 +7,15 @@ class Program
 {
     private static Random _random = new Random();
     private static string _currentTopic = "";
-    private static string _userName = "";
+    private static UserProfile _userProfile = new UserProfile();
+
+    class UserProfile
+    {
+        public string Name { get; set; } = "";
+        public string FavoriteTopic { get; set; } = "";
+        public List<string> DiscussedTopics { get; } = new List<string>();
+        public Dictionary<string, string> PersonalInfo { get; } = new Dictionary<string, string>();
+    }
 
     static void Main()
     {
@@ -17,7 +25,7 @@ class Program
         Console.ForegroundColor = ConsoleColor.Cyan;
         TypeEffect("📝 What's your name? ");
         Console.ResetColor();
-        _userName = Console.ReadLine();
+        _userProfile.Name = Console.ReadLine();
 
         StartChat();
     }
@@ -52,7 +60,7 @@ class Program
 
     static void StartChat()
     {
-        TypeEffect($"\n[ChatBot]: Welcome {_userName}! I'm your Cybersecurity Assistant.");
+        TypeEffect($"\n[ChatBot]: Welcome {_userProfile.Name}! I'm your Cybersecurity Assistant.");
         ShowMainMenu();
 
         while (true)
@@ -64,8 +72,14 @@ class Program
 
             if (userInput == "exit")
             {
-                TypeEffect($"[ChatBot]: Stay safe online, {_userName}! Goodbye!");
+                TypeEffect($"[ChatBot]: Stay safe online, {_userProfile.Name}! Goodbye!");
                 break;
+            }
+
+            if (userInput.Contains("remember"))
+            {
+                HandleMemoryCommand(userInput);
+                continue;
             }
 
             if (userInput.Contains("menu") || userInput.Contains("help"))
@@ -77,6 +91,34 @@ class Program
 
             string response = ProcessUserInput(userInput);
             TypeEffect($"[ChatBot]: {response}");
+        }
+    }
+
+    static void HandleMemoryCommand(string input)
+    {
+        if (input.Contains("that") || input.Contains("this"))
+        {
+            TypeEffect($"[ChatBot]: I'll remember that for you, {_userProfile.Name}.");
+            // Could add logic to remember the last discussed topic in more detail
+        }
+        else if (input.Contains("my name"))
+        {
+            TypeEffect($"[ChatBot]: I remember your name is {_userProfile.Name}!");
+        }
+        else if (input.Contains("favorite topic") || input.Contains("interested in"))
+        {
+            if (!string.IsNullOrEmpty(_userProfile.FavoriteTopic))
+            {
+                TypeEffect($"[ChatBot]: I remember you're interested in {_userProfile.FavoriteTopic}.");
+            }
+            else
+            {
+                TypeEffect($"[ChatBot]: I don't recall you mentioning a favorite topic yet. What interests you?");
+            }
+        }
+        else
+        {
+            TypeEffect($"[ChatBot]: I can remember your name, favorite topics, and other details you share.");
         }
     }
 
@@ -92,6 +134,12 @@ class Program
 
     static string ProcessUserInput(string userInput)
     {
+        // Store personal information
+        if (userInput.StartsWith("my ") || userInput.StartsWith("i "))
+        {
+            StorePersonalInfo(userInput);
+        }
+
         // Handle follow-up questions first
         if (!string.IsNullOrEmpty(_currentTopic))
         {
@@ -110,45 +158,141 @@ class Program
         if (ContainsAny(userInput, "password", "passwords", "credential", "login"))
         {
             _currentTopic = "password";
+            _userProfile.DiscussedTopics.Add("password");
             return GetTopicResponse(_currentTopic, false);
         }
         else if (ContainsAny(userInput, "phish", "phishing"))
         {
             _currentTopic = "phishing";
+            _userProfile.DiscussedTopics.Add("phishing");
             return GetTopicResponse(_currentTopic, false);
         }
         else if (ContainsAny(userInput, "scam", "fraud", "hoax"))
         {
             _currentTopic = "scam";
+            _userProfile.DiscussedTopics.Add("scam");
             return GetTopicResponse(_currentTopic, false);
         }
         else if (ContainsAny(userInput, "privacy", "private", "data protection", "tracking"))
         {
             _currentTopic = "privacy";
+            _userProfile.DiscussedTopics.Add("privacy");
+            
+            // Set favorite topic if user expresses interest
+            if (ContainsAny(userInput, "interested", "like", "love", "favorite"))
+            {
+                _userProfile.FavoriteTopic = "privacy";
+                return "Great! I'll remember that you're interested in privacy. It's a crucial part of staying safe online.";
+            }
             return GetTopicResponse(_currentTopic, false);
         }
+        else if (ContainsAny(userInput, "remember", "recall"))
+        {
+            return HandleRecallRequest(userInput);
+        }
 
-        // General responses
+        // General responses with personalization
         string[] generalResponses = {
-            $"I'm happy to discuss cybersecurity topics with you {_userName}. What specifically would you like to know?",
-            $"I can help with password safety, phishing prevention, scam recognition, and privacy protection. What interests you {_userName}?",
-            $"Let me know what cybersecurity topic you'd like to explore {_userName}. For example, you could ask about creating strong passwords."
+            $"I'm happy to discuss cybersecurity topics with you {_userProfile.Name}. What specifically would you like to know?",
+            GetPersonalizedPrompt(),
+            $"Let me know what cybersecurity topic you'd like to explore {_userProfile.Name}. For example, you could ask about creating strong passwords."
         };
         _currentTopic = "";
         return generalResponses[_random.Next(generalResponses.Length)];
+    }
+
+    static void StorePersonalInfo(string input)
+    {
+        if (input.Contains("name is") || input.Contains("i'm "))
+        {
+            // Already storing name at startup
+        }
+        else if (input.Contains("email") || input.Contains("address"))
+        {
+            TypeEffect("[ChatBot]: For your security, I won't store sensitive information like email addresses.");
+        }
+        else if (input.Contains("favorite") || input.Contains("interested"))
+        {
+            if (input.Contains("password") || input.Contains("security"))
+                _userProfile.FavoriteTopic = "password";
+            else if (input.Contains("phishing"))
+                _userProfile.FavoriteTopic = "phishing";
+            else if (input.Contains("scam"))
+                _userProfile.FavoriteTopic = "scam";
+            else if (input.Contains("privacy"))
+                _userProfile.FavoriteTopic = "privacy";
+        }
+    }
+
+    static string HandleRecallRequest(string input)
+    {
+        if (input.Contains("my name"))
+        {
+            return $"I remember your name is {_userProfile.Name}!";
+        }
+        else if (input.Contains("favorite topic") || input.Contains("interested in"))
+        {
+            if (!string.IsNullOrEmpty(_userProfile.FavoriteTopic))
+            {
+                return $"I remember you're particularly interested in {_userProfile.FavoriteTopic}. " + 
+                       GetPersonalizedTip(_userProfile.FavoriteTopic);
+            }
+            return "I don't recall you mentioning a favorite topic yet. What cybersecurity topics interest you?";
+        }
+        else if (input.Contains("we talked") || input.Contains("discussed"))
+        {
+            if (_userProfile.DiscussedTopics.Count > 0)
+            {
+                return $"We've discussed: {string.Join(", ", _userProfile.DiscussedTopics)}. " +
+                       "Would you like to revisit any of these topics?";
+            }
+            return "We haven't discussed any specific topics yet. What would you like to talk about?";
+        }
+        return "I can remember details like your name and topics you're interested in. Try asking 'what do you remember about me?'";
+    }
+
+    static string GetPersonalizedPrompt()
+    {
+        if (!string.IsNullOrEmpty(_userProfile.FavoriteTopic))
+        {
+            string[] prompts = {
+                $"Since you're interested in {_userProfile.FavoriteTopic}, would you like to explore that further?",
+                $"As someone who cares about {_userProfile.FavoriteTopic}, you might want to ask about...",
+                $"I remember {_userProfile.FavoriteTopic} is important to you. What would you like to know?"
+            };
+            return prompts[_random.Next(prompts.Length)];
+        }
+        return "What cybersecurity topic would you like to discuss?";
+    }
+
+    static string GetPersonalizedTip(string topic)
+    {
+        return topic switch
+        {
+            "password" => "Here's a personalized password tip: Consider using a password manager to generate and store complex passwords securely.",
+            "phishing" => "Since you're interested in phishing: Always double-check email sender addresses, even from known contacts.",
+            "scam" => "Personal scam tip: Never feel pressured to act immediately - legitimate organizations won't rush you.",
+            "privacy" => "Privacy tip for you: Review app permissions monthly and revoke any you don't need.",
+            _ => "Here's a general security tip: Keep your software updated to protect against vulnerabilities."
+        };
     }
 
     static string GetTopicResponse(string topic, bool isFollowUp)
     {
         var prefix = isFollowUp ? "Here's another tip" : "Great question";
         
+        if (!string.IsNullOrEmpty(_userProfile.FavoriteTopic) && topic == _userProfile.FavoriteTopic)
+        {
+            prefix = $"Since you're interested in {topic}, {prefix.ToLower()}";
+        }
+
         return topic switch
         {
             "password" => GetPasswordResponse(prefix),
             "phishing" => GetPhishingResponse(prefix),
             "scam" => GetScamResponse(prefix),
             "privacy" => GetPrivacyResponse(prefix),
-            _ => "I'd be happy to discuss cybersecurity topics. What specifically interests you?"
+            _ => $"I'd be happy to discuss cybersecurity topics with you {_userProfile.Name}. What specifically interests you?"
         };
     }
 
